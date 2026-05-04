@@ -511,9 +511,10 @@ function bootGraph() {
     .attr('r', d => nodeRadius(d) + 3.5)
     .attr('stroke', d => `var(--st-${STATUS_KEY[d.status]})`);
 
-  nodeG.append('text')
+  nodeG.filter(d => d.type !== 'self')
+    .append('text')
     .attr('class', 'label')
-    .attr('dy', d => d.type === 'self' ? '0.35em' : nodeRadius(d) + 14)
+    .attr('dy', d => nodeRadius(d) + 14)
     .text(d => d.name);
 
   svg.on('click', () => selectNode(null));
@@ -559,8 +560,8 @@ function bootGraph() {
     }
     const conns = [];
     linkData.forEach(l => {
-      if (l.source.id === d.id) conns.push({ id: l.target.id, name: nodes.find(n => n.id === l.target.id).name, kind: l.kind });
-      if (l.target.id === d.id) conns.push({ id: l.source.id, name: nodes.find(n => n.id === l.source.id).name, kind: l.kind });
+      if (l.source.id === d.id && l.target.id !== 'g') conns.push({ id: l.target.id, name: nodes.find(n => n.id === l.target.id).name, kind: l.kind });
+      if (l.target.id === d.id && l.source.id !== 'g') conns.push({ id: l.source.id, name: nodes.find(n => n.id === l.source.id).name, kind: l.kind });
     });
     const cluster = CLUSTERS[d.cluster];
     detail.innerHTML = `

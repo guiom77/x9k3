@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Encrypt · réseau</title>
+<style>
+  body { font-family: -apple-system, sans-serif; background: #0d0f14; color: #e8e3d6; max-width: 720px; margin: 40px auto; padding: 24px; }
+  h1 { font-size: 20px; margin-bottom: 8px; color: #c5a572; }
+  p { color: #b5ad9b; font-size: 13px; line-height: 1.6; margin-bottom: 16px; }
+  label { display: block; margin-top: 20px; margin-bottom: 6px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #8a8270; }
+  input, textarea { width: 100%; background: #161922; color: #e8e3d6; border: 1px solid #2a2c34; padding: 10px; font-family: 'JetBrains Mono', monospace; font-size: 12px; border-radius: 4px; }
+  textarea { min-height: 200px; resize: vertical; }
+  button { margin-top: 20px; background: #c5a572; color: #0d0f14; border: none; padding: 12px 24px; font-weight: 600; cursor: pointer; border-radius: 4px; font-size: 13px; }
+  button:hover { background: #d4b482; }
+  .out { margin-top: 24px; }
+  .out textarea { background: #0a0c12; color: #8db580; }
+  .step { color: #c5a572; font-weight: 600; }
+  details { margin-top: 12px; }
+  summary { cursor: pointer; color: #b5ad9b; font-size: 12px; }
+</style>
+</head>
+<body>
+  <h1>Outil de chiffrement</h1>
+  <p>Cet outil tourne 100% en local — rien n'est envoyé sur internet. Il prend ton <code>data.json</code> et un mot de passe, et te ressort le <code>data.enc.json</code> à pousser sur GitHub.</p>
+
+  <details>
+    <summary>Comment ça marche</summary>
+    <p style="margin-top:8px;"><span class="step">1.</span> Colle le contenu de <code>data.json</code> ci-dessous.<br>
+    <span class="step">2.</span> Tape ton mot de passe (le même qui ouvrira la page en ligne).<br>
+    <span class="step">3.</span> Clique « Chiffrer ». Tu récupères en bas le contenu à mettre dans <code>data.enc.json</code>.<br>
+    <span class="step">4.</span> Tu remplaces <code>data.enc.json</code> dans ton repo GitHub. Commit. La page se met à jour en ~30s.</p>
+  </details>
+
+  <label for="json">Contenu de data.json</label>
+  <textarea id="json" placeholder='{ "META": ..., "NODES": [...] }'></textarea>
+
+  <label for="pwd">Mot de passe</label>
+  <input type="password" id="pwd" autocomplete="off">
+
+  <button id="encrypt">Chiffrer</button>
+
+  <div class="out" id="out" style="display:none;">
+    <label>data.enc.json (copie-colle dans ton repo)</label>
+    <textarea id="result" readonly onclick="this.select()"></textarea>
+    <button id="copy">Copier dans le presse-papier</button>
+  </div>
+
+  <script>
+    async function encryptJSON(jsonText, password) {
+      const enc = new TextEncoder();
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      const iv   = crypto.getRandomValues(new Uint8Array(12));
+      const baseKey = await crypto.subtle.importKey(
+        'raw', enc.encode(password),
+        { name: 'PBKDF2' }, false, ['deriveKey']
+      );
+      const key = await crypto.subtle.deriveKey(
+        { name: 'PBKDF2', salt, iterations: 250000, hash: 'SHA-256' },
+        baseKey,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt']
+      );
+      const ct = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv },
+        key,
+        enc.encode(jsonText)
+      );
+      const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+      return { v: 1, salt: b64(salt), iv: b64(iv), ct: b64(ct) };
+    }
+
+    document.getElementById('encrypt').onclick = async () => {
+      const text = document.getElementById('json').value.trim();
+      const pwd  = document.getElementById('pwd').value;
+      if (!text || !pwd) { alert('Texte ou mot de passe manquant.'); return; }
+      try {
+        // Validate JSON
+        JSON.parse(text);
+      } catch (e) {
+        alert('JSON invalide : ' + e.message);
+        return;
+      }
+      const payload = await encryptJSON(text, pwd);
+      const out = document.getElementById('out');
+      out.style.display = 'block';
+      document.getElementById('result').value = JSON.stringify(payload, null, 2);
+    };
+
+    document.getElementById('copy').onclick = async () => {
+      const r = document.getElementById('result');
+      r.select();
+      try {
+        await navigator.clipboard.writeText(r.value);
+        document.getElementById('copy').textContent = 'Copié ✓';
+        setTimeout(() => { document.getElementById('copy').textContent = 'Copier dans le presse-papier'; }, 2000);
+      } catch(e) { document.execCommand('copy'); }
+    };
+  </script>
+</body>
+</html>

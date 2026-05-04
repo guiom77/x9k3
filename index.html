@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>·</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Public+Sans:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+
+<style>
+:root {
+  --bg: #0d0f14;
+  --bg-2: #14171f;
+  --ink: #e8e3d6;
+  --ink-soft: #b5ad9b;
+  --ink-faint: #6e6856;
+  --accent: #c5a572;
+  --rule: #2a2c34;
+  --panel: #161922;
+  --st-actif: #8bc34a;
+  --st-wait: #e8b04c;
+  --st-veille: #7d8290;
+  --st-ferme: #8a4646;
+  --serif: 'Cormorant Garamond', Georgia, serif;
+  --sans: 'Public Sans', -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-weight: 300; height: 100vh; overflow: hidden; -webkit-font-smoothing: antialiased; }
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    radial-gradient(circle at 25% 30%, rgba(197, 165, 114, 0.05), transparent 55%),
+    radial-gradient(circle at 75% 70%, rgba(122, 158, 184, 0.04), transparent 55%);
+  pointer-events: none; z-index: 0;
+}
+
+/* ─── LOGIN SCREEN ─────────────────────── */
+.gate {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg);
+  transition: opacity 0.5s;
+}
+.gate.hidden { opacity: 0; pointer-events: none; }
+.gate-inner {
+  text-align: center;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 28px;
+  max-width: 320px;
+  padding: 0 24px;
+}
+.gate-mark {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 56px;
+  color: var(--accent);
+  font-weight: 400;
+  line-height: 1;
+}
+.gate-input {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-align: center;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink);
+  padding: 12px 8px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.gate-input::placeholder { color: var(--ink-faint); }
+.gate-input:focus { border-bottom-color: var(--accent); }
+.gate-input.error { border-bottom-color: #b85a5a; animation: shake 0.4s; }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-8px); }
+  75% { transform: translateX(8px); }
+}
+.gate-hint {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--ink-faint);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.gate-btn {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid var(--rule);
+  color: var(--ink-soft);
+  padding: 12px 32px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.gate-btn:hover { border-color: var(--accent); color: var(--accent); }
+.gate-btn:disabled { opacity: 0.4; cursor: wait; }
+
+/* ─── APP (caché tant que pas auth) ───── */
+.app {
+  display: grid;
+  grid-template-columns: 280px 1fr 340px;
+  height: 100vh;
+  position: relative;
+  z-index: 1;
+  visibility: hidden;
+}
+.app.visible { visibility: visible; }
+
+aside.left {
+  border-right: 1px solid var(--rule);
+  padding: 36px 28px;
+  display: flex; flex-direction: column;
+  gap: 28px;
+  overflow-y: auto;
+}
+.brand .eyebrow {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 12px;
+}
+.brand h1 {
+  font-family: var(--serif); font-weight: 400;
+  font-size: 36px; line-height: 1; letter-spacing: -0.01em;
+}
+.brand h1 em { font-style: italic; color: var(--accent); }
+.brand .tagline {
+  font-family: var(--serif); font-style: italic;
+  font-size: 14px; color: var(--ink-soft);
+  margin-top: 12px; line-height: 1.4;
+}
+.brand .updated {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--ink-faint); letter-spacing: 0.12em;
+  margin-top: 14px; text-transform: uppercase;
+}
+
+.legend-block h3 {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ink-faint); margin-bottom: 12px; font-weight: 500;
+}
+.legend-row {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 12px; color: var(--ink-soft);
+  cursor: pointer; padding: 4px 0; user-select: none;
+  transition: opacity 0.2s, color 0.2s;
+}
+.legend-row:hover { color: var(--ink); }
+.legend-row.dimmed { opacity: 0.3; }
+.legend-row .swatch { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+.legend-row .swatch.ring { background: transparent; border: 2px solid; }
+.legend-row .count { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--ink-faint); }
+
+.controls {
+  margin-top: auto; padding-top: 16px;
+  border-top: 1px solid var(--rule);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.btn {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  background: transparent; border: 1px solid var(--rule);
+  color: var(--ink-soft); padding: 10px 14px;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.canvas-wrap { position: relative; overflow: hidden; }
+svg.graph { width: 100%; height: 100%; display: block; cursor: grab; }
+svg.graph:active { cursor: grabbing; }
+
+aside.right {
+  border-left: 1px solid var(--rule);
+  padding: 36px 28px;
+  overflow-y: auto;
+  background: linear-gradient(to left, rgba(20,23,31,0.6), transparent);
+}
+.detail-empty {
+  font-family: var(--serif); font-style: italic;
+  font-size: 16px; color: var(--ink-faint);
+  margin-top: 60px; text-align: center; line-height: 1.5;
+}
+.detail .eyebrow {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 8px;
+}
+.detail h2 {
+  font-family: var(--serif); font-weight: 500;
+  font-size: 28px; line-height: 1.1; letter-spacing: -0.01em;
+  color: var(--ink); margin-bottom: 16px;
+}
+.detail .status-row {
+  display: flex; gap: 16px; align-items: center;
+  margin-bottom: 24px; padding-bottom: 20px;
+  border-bottom: 1px solid var(--rule);
+  font-size: 11px; color: var(--ink-soft);
+  font-family: var(--mono); letter-spacing: 0.08em;
+  text-transform: uppercase; flex-wrap: wrap;
+}
+.detail .status-row .item { display: flex; align-items: center; gap: 8px; }
+.detail .status-row .dot { width: 8px; height: 8px; border-radius: 50%; }
+.detail .role { font-size: 13.5px; color: var(--ink); line-height: 1.55; margin-bottom: 18px; }
+.detail .note {
+  font-family: var(--mono); font-size: 11.5px; color: var(--accent);
+  line-height: 1.6; padding: 12px 14px;
+  background: rgba(197, 165, 114, 0.06);
+  border-left: 2px solid var(--accent); margin-bottom: 24px;
+}
+.detail .connections h3 {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ink-faint); margin-bottom: 12px; font-weight: 500;
+}
+.conn {
+  font-family: var(--serif); font-size: 16px;
+  padding: 5px 0; color: var(--ink-soft);
+  cursor: pointer; transition: color 0.15s;
+  display: flex; align-items: baseline; gap: 10px;
+}
+.conn:hover { color: var(--accent); }
+.conn .arrow {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--ink-faint); letter-spacing: 0.1em; min-width: 14px;
+}
+
+.link { stroke: var(--rule); stroke-opacity: 0.5; fill: none; }
+.link.cross { stroke: var(--accent); stroke-opacity: 0.35; stroke-dasharray: 2 3; }
+.link.highlighted { stroke: var(--accent); stroke-opacity: 1; stroke-width: 1.5; }
+.link.dimmed { stroke-opacity: 0.08; }
+
+.node circle.body { cursor: pointer; transition: stroke-width 0.2s; }
+.node circle.ring-stroke { fill: none; stroke-width: 2; pointer-events: none; }
+.node text.label {
+  font-family: var(--serif); font-size: 12px; fill: var(--ink-soft);
+  text-anchor: middle; pointer-events: none; user-select: none;
+  paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round;
+}
+.node.self text.label {
+  font-size: 16px; font-weight: 500; fill: var(--accent); font-style: italic;
+}
+.node.dimmed { opacity: 0.18; }
+.node.highlighted text.label { fill: var(--ink); }
+.node.highlighted circle.body { stroke-width: 3; }
+
+.pulse {
+  fill: var(--accent); fill-opacity: 0.15;
+  animation: pulse 3s ease-in-out infinite;
+  transform-origin: center; transform-box: fill-box;
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); fill-opacity: 0.15; }
+  50% { transform: scale(1.6); fill-opacity: 0; }
+}
+
+@media (max-width: 1024px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: 180px 1fr 220px; }
+  aside.left, aside.right { border: none; border-bottom: 1px solid var(--rule); padding: 16px; overflow-y: auto; }
+}
+</style>
+</head>
+
+<body>
+
+<!-- ─── LOGIN GATE ──────────────────────── -->
+<div class="gate" id="gate">
+  <div class="gate-inner">
+    <div class="gate-mark">·</div>
+    <input type="password" class="gate-input" id="pwd" placeholder="·" autocomplete="current-password" autofocus>
+    <button class="gate-btn" id="gate-btn">Entrer</button>
+    <div class="gate-hint" id="gate-hint"></div>
+  </div>
+</div>
+
+<!-- ─── APP ─────────────────────────────── -->
+<div class="app" id="app">
+
+<aside class="left">
+  <div class="brand">
+    <div class="eyebrow">Réseau · cartographie</div>
+    <h1><em>le</em><br>réseau</h1>
+    <div class="tagline" id="brand-tagline"></div>
+    <div class="updated" id="brand-updated"></div>
+  </div>
+  <div class="legend-block">
+    <h3>Statut</h3>
+    <div id="legend-status"></div>
+  </div>
+  <div class="legend-block">
+    <h3>Cluster</h3>
+    <div id="legend-cluster"></div>
+  </div>
+  <div class="controls">
+    <button class="btn" id="btn-recenter">↺ Recentrer</button>
+    <button class="btn" id="btn-reset">Réinitialiser filtres</button>
+  </div>
+</aside>
+
+<div class="canvas-wrap">
+  <svg class="graph" id="svg"></svg>
+</div>
+
+<aside class="right" id="detail">
+  <div class="detail-empty">Clique sur un nœud<br>pour voir le lien.</div>
+</aside>
+
+</div>
+
+<script>
+// ============================================================
+// CRYPTO — déchiffrement AES-GCM avec clé dérivée par PBKDF2
+// ============================================================
+
+async function deriveKey(password, saltB64) {
+  const enc = new TextEncoder();
+  const salt = Uint8Array.from(atob(saltB64), c => c.charCodeAt(0));
+  const baseKey = await crypto.subtle.importKey(
+    'raw', enc.encode(password),
+    { name: 'PBKDF2' }, false, ['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 250000, hash: 'SHA-256' },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['decrypt']
+  );
+}
+
+async function decryptPayload(payload, password) {
+  const key = await deriveKey(password, payload.salt);
+  const iv = Uint8Array.from(atob(payload.iv), c => c.charCodeAt(0));
+  const ciphertext = Uint8Array.from(atob(payload.ct), c => c.charCodeAt(0));
+  const plaintext = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    ciphertext
+  );
+  return JSON.parse(new TextDecoder().decode(plaintext));
+}
+
+// ============================================================
+// GATE — gestion du login
+// ============================================================
+
+const gate = document.getElementById('gate');
+const gateBtn = document.getElementById('gate-btn');
+const pwdInput = document.getElementById('pwd');
+const gateHint = document.getElementById('gate-hint');
+const STORAGE_KEY = 'rg-pwd-v1';
+
+let DATA = null;
+
+async function tryUnlock(password, fromCache = false) {
+  gateBtn.disabled = true;
+  gateHint.textContent = 'déchiffrement…';
+  try {
+    const res = await fetch('./data.enc.json?v=' + Date.now());
+    if (!res.ok) throw new Error('fetch');
+    const payload = await res.json();
+    DATA = await decryptPayload(payload, password);
+    // OK — store password (sessionStorage = vidé à la fermeture du tab,
+    // mais iCloud Keychain le ressort à l'autofill suivant)
+    try { sessionStorage.setItem(STORAGE_KEY, password); } catch(e) {}
+    gateHint.textContent = '';
+    gate.classList.add('hidden');
+    document.getElementById('app').classList.add('visible');
+    setTimeout(() => { gate.style.display = 'none'; }, 600);
+    bootGraph();
+  } catch (e) {
+    pwdInput.classList.add('error');
+    setTimeout(() => pwdInput.classList.remove('error'), 500);
+    gateHint.textContent = fromCache ? '' : 'mot de passe incorrect';
+    pwdInput.value = '';
+    pwdInput.focus();
+  } finally {
+    gateBtn.disabled = false;
+  }
+}
+
+gateBtn.addEventListener('click', () => {
+  if (pwdInput.value) tryUnlock(pwdInput.value);
+});
+pwdInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && pwdInput.value) tryUnlock(pwdInput.value);
+});
+
+// Auto-unlock si password en sessionStorage (rechargement de page)
+window.addEventListener('DOMContentLoaded', () => {
+  try {
+    const cached = sessionStorage.getItem(STORAGE_KEY);
+    if (cached) tryUnlock(cached, true);
+  } catch(e) {}
+});
+
+// ============================================================
+// GRAPHE — démarre une fois DATA déchiffré
+// ============================================================
+
+function bootGraph() {
+  const { CLUSTERS, NODES, CROSS_LINKS, META } = DATA;
+
+  document.getElementById('brand-tagline').textContent = '« ' + (META?.tagline || '') + ' »';
+  document.getElementById('brand-updated').textContent = 'Maj · ' + (META?.updated || '');
+
+  const STATUS_ORDER = ['actif', 'wait', 'veille', 'fermé'];
+  const STATUS_LABEL = { actif: 'actif', wait: 'en attente', veille: 'veille', fermé: 'fermé' };
+  const STATUS_KEY   = { actif: 'actif', wait: 'wait', veille: 'veille', fermé: 'ferme' };
+
+  // Build links
+  const links = [];
+  NODES.forEach(n => {
+    if (n.type === 'self') return;
+    if (n.ring === 1) links.push({ source: 'g', target: n.id, kind: 'primary' });
+    else if (n.ring === 2) links.push({ source: n.via, target: n.id, kind: 'secondary' });
+  });
+  CROSS_LINKS.forEach(l => links.push({ ...l, kind: l.kind || 'cross' }));
+
+  const svg = d3.select('#svg');
+  const width  = svg.node().clientWidth;
+  const height = svg.node().clientHeight;
+
+  const zoomLayer = svg.append('g');
+  const zoom = d3.zoom().scaleExtent([0.4, 3]).on('zoom', (e) => zoomLayer.attr('transform', e.transform));
+  svg.call(zoom);
+
+  const linkLayer = zoomLayer.append('g').attr('class', 'links');
+  const nodeLayer = zoomLayer.append('g').attr('class', 'nodes');
+
+  const nodes = NODES.map(n => ({ ...n }));
+  const linkData = links.map(l => ({ ...l }));
+
+  const self = nodes.find(n => n.type === 'self');
+  if (self) { self.fx = width / 2; self.fy = height / 2; }
+
+  function nodeRadius(d) {
+    if (d.type === 'self') return 22;
+    if (d.ring === 1) return 9;
+    return 6;
+  }
+
+  const sim = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(linkData)
+      .id(d => d.id)
+      .distance(d => d.kind === 'primary' ? 130 : (d.kind === 'secondary' ? 70 : 100))
+      .strength(d => d.kind === 'primary' ? 0.5 : (d.kind === 'secondary' ? 0.85 : 0.2))
+    )
+    .force('charge', d3.forceManyBody().strength(d => d.type === 'self' ? -1200 : (d.ring === 2 ? -180 : -400)))
+    .force('center', d3.forceCenter(width / 2, height / 2).strength(0.02))
+    .force('collision', d3.forceCollide().radius(d => nodeRadius(d) + 14))
+    .force('cluster', clusterForce(0.05))
+    .alphaDecay(0.025);
+
+  function clusterForce(strength) {
+    const order = Object.keys(CLUSTERS);
+    const angles = {};
+    order.forEach((c, i) => { angles[c] = (i / order.length) * Math.PI * 2 - Math.PI / 2; });
+    const r = Math.min(width, height) * 0.32;
+    return (alpha) => {
+      nodes.forEach(n => {
+        if (n.type === 'self' || !n.cluster) return;
+        const a = angles[n.cluster];
+        const tx = width / 2 + Math.cos(a) * r;
+        const ty = height / 2 + Math.sin(a) * r;
+        n.vx += (tx - n.x) * strength * alpha;
+        n.vy += (ty - n.y) * strength * alpha;
+      });
+    };
+  }
+
+  const linkSel = linkLayer.selectAll('line.link')
+    .data(linkData)
+    .join('line')
+    .attr('class', d => `link ${d.kind === 'cross' ? 'cross' : ''}`)
+    .attr('stroke-width', d => d.kind === 'primary' ? 0.8 : 0.6);
+
+  const nodeG = nodeLayer.selectAll('g.node')
+    .data(nodes)
+    .join('g')
+    .attr('class', d => `node ${d.type === 'self' ? 'self' : ''}`)
+    .call(d3.drag().on('start', dragStart).on('drag', dragged).on('end', dragEnd))
+    .on('mouseenter', (e, d) => highlight(d))
+    .on('mouseleave', () => clearHighlight())
+    .on('click', (e, d) => { e.stopPropagation(); selectNode(d); });
+
+  nodeG.filter(d => d.type === 'self')
+    .append('circle').attr('class', 'pulse').attr('r', 22);
+
+  nodeG.append('circle')
+    .attr('class', 'body')
+    .attr('r', d => nodeRadius(d))
+    .attr('fill', d => d.type === 'self' ? 'var(--accent)' : (CLUSTERS[d.cluster]?.color || 'var(--ink-soft)'))
+    .attr('stroke', 'var(--bg)')
+    .attr('stroke-width', 2);
+
+  nodeG.filter(d => d.type !== 'self')
+    .append('circle')
+    .attr('class', 'ring-stroke')
+    .attr('r', d => nodeRadius(d) + 3.5)
+    .attr('stroke', d => `var(--st-${STATUS_KEY[d.status]})`);
+
+  nodeG.append('text')
+    .attr('class', 'label')
+    .attr('dy', d => d.type === 'self' ? '0.35em' : nodeRadius(d) + 14)
+    .text(d => d.name);
+
+  svg.on('click', () => selectNode(null));
+
+  sim.on('tick', () => {
+    linkSel
+      .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+      .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+    nodeG.attr('transform', d => `translate(${d.x},${d.y})`);
+  });
+
+  function dragStart(e, d) { if (!e.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; }
+  function dragged(e, d) { d.fx = e.x; d.fy = e.y; }
+  function dragEnd(e, d) { if (!e.active) sim.alphaTarget(0); if (d.type !== 'self') { d.fx = null; d.fy = null; } }
+
+  function highlight(node) {
+    const connected = new Set([node.id]);
+    linkData.forEach(l => {
+      if (l.source.id === node.id) connected.add(l.target.id);
+      if (l.target.id === node.id) connected.add(l.source.id);
+    });
+    nodeG.classed('dimmed', d => !connected.has(d.id))
+         .classed('highlighted', d => d.id === node.id);
+    linkSel.classed('highlighted', l => l.source.id === node.id || l.target.id === node.id)
+           .classed('dimmed', l => l.source.id !== node.id && l.target.id !== node.id);
+  }
+  function clearHighlight() {
+    nodeG.classed('dimmed', false).classed('highlighted', false);
+    linkSel.classed('highlighted', false).classed('dimmed', false);
+  }
+
+  const detail = document.getElementById('detail');
+  function selectNode(d) {
+    if (!d) { detail.innerHTML = `<div class="detail-empty">Clique sur un nœud<br>pour voir le lien.</div>`; return; }
+    if (d.type === 'self') {
+      detail.innerHTML = `
+        <div class="detail">
+          <div class="eyebrow">Centre du réseau</div>
+          <h2>${d.name}</h2>
+          <div class="role">${META?.role || ''}<br>« ${META?.tagline || ''} »</div>
+        </div>`;
+      return;
+    }
+    const conns = [];
+    linkData.forEach(l => {
+      if (l.source.id === d.id) conns.push({ id: l.target.id, name: nodes.find(n => n.id === l.target.id).name, kind: l.kind });
+      if (l.target.id === d.id) conns.push({ id: l.source.id, name: nodes.find(n => n.id === l.source.id).name, kind: l.kind });
+    });
+    const cluster = CLUSTERS[d.cluster];
+    detail.innerHTML = `
+      <div class="detail">
+        <div class="eyebrow">${cluster?.label || ''} · ring ${d.ring}</div>
+        <h2>${d.name}</h2>
+        <div class="status-row">
+          <div class="item"><span class="dot" style="background:${cluster?.color || ''}"></span>cluster</div>
+          <div class="item"><span class="dot" style="background:var(--st-${STATUS_KEY[d.status]})"></span>${STATUS_LABEL[d.status]}</div>
+        </div>
+        <div class="role">${d.role || ''}</div>
+        ${d.note ? `<div class="note">${d.note}</div>` : ''}
+        <div class="connections">
+          <h3>Liens (${conns.length})</h3>
+          <div class="conn-list">
+            ${conns.map(c => `<div class="conn" data-id="${c.id}"><span class="arrow">${c.kind === 'primary' ? '→' : c.kind === 'secondary' ? '↳' : '↔'}</span>${c.name}</div>`).join('')}
+          </div>
+        </div>
+      </div>`;
+    detail.querySelectorAll('.conn').forEach(el => {
+      el.addEventListener('click', () => {
+        const target = nodes.find(n => n.id === el.dataset.id);
+        if (target) selectNode(target);
+      });
+    });
+  }
+
+  // Legends
+  const legendStatus = document.getElementById('legend-status');
+  legendStatus.innerHTML = '';
+  const counts = {};
+  NODES.forEach(n => { if (n.status) counts[n.status] = (counts[n.status] || 0) + 1; });
+  const activeStatuses = new Set(STATUS_ORDER);
+  STATUS_ORDER.forEach(st => {
+    const row = document.createElement('div');
+    row.className = 'legend-row';
+    row.dataset.kind = 'status';
+    row.dataset.value = st;
+    row.innerHTML = `
+      <span class="swatch ring" style="border-color: var(--st-${STATUS_KEY[st]})"></span>
+      <span>${STATUS_LABEL[st]}</span>
+      <span class="count">${counts[st] || 0}</span>`;
+    row.addEventListener('click', () => toggleFilter('status', st));
+    legendStatus.appendChild(row);
+  });
+
+  const legendCluster = document.getElementById('legend-cluster');
+  legendCluster.innerHTML = '';
+  const cCounts = {};
+  NODES.forEach(n => { if (n.cluster) cCounts[n.cluster] = (cCounts[n.cluster] || 0) + 1; });
+  const activeClusters = new Set(Object.keys(CLUSTERS));
+  Object.entries(CLUSTERS).forEach(([id, c]) => {
+    const row = document.createElement('div');
+    row.className = 'legend-row';
+    row.dataset.kind = 'cluster';
+    row.dataset.value = id;
+    row.innerHTML = `
+      <span class="swatch" style="background:${c.color}"></span>
+      <span>${c.label}</span>
+      <span class="count">${cCounts[id] || 0}</span>`;
+    row.addEventListener('click', () => toggleFilter('cluster', id));
+    legendCluster.appendChild(row);
+  });
+
+  function toggleFilter(kind, value) {
+    const set = kind === 'status' ? activeStatuses : activeClusters;
+    if (set.has(value)) set.delete(value); else set.add(value);
+    if (set.size === 0) (kind === 'status' ? STATUS_ORDER : Object.keys(CLUSTERS)).forEach(v => set.add(v));
+    applyFilter();
+  }
+  function applyFilter() {
+    document.querySelectorAll('.legend-row').forEach(el => {
+      const set = el.dataset.kind === 'status' ? activeStatuses : activeClusters;
+      el.classList.toggle('dimmed', !set.has(el.dataset.value));
+    });
+    function ok(n) {
+      if (!n || n.type === 'self') return true;
+      const sOk = !n.status || activeStatuses.has(n.status);
+      const cOk = !n.cluster || activeClusters.has(n.cluster);
+      return sOk && cOk;
+    }
+    nodeG.classed('dimmed', d => !ok(d));
+    linkSel.classed('dimmed', l => !(ok(l.source) && ok(l.target)));
+  }
+
+  document.getElementById('btn-recenter').addEventListener('click', () => {
+    svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
+  });
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    STATUS_ORDER.forEach(s => activeStatuses.add(s));
+    Object.keys(CLUSTERS).forEach(c => activeClusters.add(c));
+    applyFilter();
+  });
+}
+</script>
+
+</body>
+</html>

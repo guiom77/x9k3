@@ -414,7 +414,9 @@ window.addEventListener('DOMContentLoaded', () => {
 // ============================================================
 
 function bootGraph() {
+  console.log('[RG] bootGraph start');
   const { CLUSTERS, NODES, CROSS_LINKS, META } = DATA;
+  console.log('[RG] DATA ok — nodes:', NODES?.length, 'clusters:', Object.keys(CLUSTERS||{}).length);
 
   document.getElementById('brand-tagline').textContent = '« ' + (META?.tagline || '') + ' »';
   document.getElementById('brand-updated').textContent = 'Maj · ' + (META?.updated || '');
@@ -431,10 +433,12 @@ function bootGraph() {
     else if (n.ring === 2) links.push({ source: n.via, target: n.id, kind: 'secondary' });
   });
   CROSS_LINKS.forEach(l => links.push({ ...l, kind: l.kind || 'cross' }));
+  console.log('[RG] links built:', links.length);
 
   const svg = d3.select('#svg');
   const width  = svg.node().clientWidth;
   const height = svg.node().clientHeight;
+  console.log('[RG] svg dimensions:', width, 'x', height);
 
   const zoomLayer = svg.append('g');
   const zoom = d3.zoom().scaleExtent([0.4, 3]).on('zoom', (e) => zoomLayer.attr('transform', e.transform));
@@ -445,6 +449,7 @@ function bootGraph() {
 
   const nodes = NODES.map(n => ({ ...n }));
   const linkData = links.map(l => ({ ...l }));
+  console.log('[RG] simulation data ready — nodes:', nodes.length, 'linkData:', linkData.length);
 
   const self = nodes.find(n => n.type === 'self');
   if (self) { self.fx = width / 2; self.fy = height / 2; }
@@ -455,6 +460,7 @@ function bootGraph() {
     return 6;
   }
 
+  console.log('[RG] starting forceSimulation');
   const sim = d3.forceSimulation(nodes)
     .force('link', d3.forceLink(linkData)
       .id(d => d.id)
@@ -466,6 +472,7 @@ function bootGraph() {
     .force('collision', d3.forceCollide().radius(d => nodeRadius(d) + 14))
     .force('cluster', clusterForce(0.05))
     .alphaDecay(0.025);
+  console.log('[RG] simulation created');
 
   function clusterForce(strength) {
     const order = Object.keys(CLUSTERS);
@@ -604,6 +611,7 @@ function bootGraph() {
   }
 
   // Legends
+  console.log('[RG] building legends');
   const legendStatus = document.getElementById('legend-status');
   legendStatus.innerHTML = '';
   const counts = {};
@@ -669,6 +677,7 @@ function bootGraph() {
     Object.keys(CLUSTERS).forEach(c => activeClusters.add(c));
     applyFilter();
   });
+  console.log('[RG] bootGraph complete ✓');
 }
 </script>
 

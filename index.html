@@ -378,15 +378,19 @@ async function tryUnlock(password, fromCache = false) {
     gate.classList.add('hidden');
     document.getElementById('app').classList.add('visible');
     setTimeout(() => { gate.style.display = 'none'; }, 600);
-    bootGraph();
   } catch (e) {
     pwdInput.classList.add('error');
     setTimeout(() => pwdInput.classList.remove('error'), 500);
     gateHint.textContent = fromCache ? '' : 'mot de passe incorrect';
     pwdInput.value = '';
     pwdInput.focus();
-  } finally {
     gateBtn.disabled = false;
+    return;
+  }
+  gateBtn.disabled = false;
+  try { bootGraph(); } catch(err) {
+    console.error('bootGraph error:', err);
+    document.getElementById('detail').innerHTML = `<div class="detail-empty" style="color:#b85a5a">Erreur de rendu.<br><small style="font-family:var(--mono);font-size:10px">${err.message}</small></div>`;
   }
 }
 
@@ -564,6 +568,15 @@ function bootGraph() {
       if (l.target.id === d.id && l.source.id !== 'g') conns.push({ id: l.source.id, name: nodes.find(n => n.id === l.source.id).name, kind: l.kind });
     });
     const cluster = CLUSTERS[d.cluster];
+    const bridgesHtml = (d.bridges_to && d.bridges_to.length) ? `
+      <div class="connections" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--rule)">
+        <h3 style="font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:12px;font-weight:500">Ponts possibles</h3>
+        ${d.bridges_to.map(b => `
+          <div style="margin-bottom:12px">
+            <div style="font-family:var(--serif);font-size:14px;color:var(--ink)">${b.target}</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--ink-faint);margin-top:3px">via ${b.via} · ${b.for}</div>
+          </div>`).join('')}
+      </div>` : '';
     detail.innerHTML = `
       <div class="detail">
         <div class="eyebrow">${cluster?.label || ''} · ring ${d.ring}</div>
@@ -577,9 +590,10 @@ function bootGraph() {
         <div class="connections">
           <h3>Liens (${conns.length})</h3>
           <div class="conn-list">
-            ${conns.map(c => `<div class="conn" data-id="${c.id}"><span class="arrow">${c.kind === 'primary' ? '→' : c.kind === 'secondary' ? '↳' : '↔'}</span>${c.name}</div>`).join('')}
+            ${conns.map(c => `<div class="conn" data-id="${c.id}"><span class="arrow">${c.kind === 'primary' ? '→' : c.kind === 'secondary' ? '↳' : '↔'}</span>${c.name || c.id}</div>`).join('')}
           </div>
         </div>
+        ${bridgesHtml}
       </div>`;
     detail.querySelectorAll('.conn').forEach(el => {
       el.addEventListener('click', () => {
